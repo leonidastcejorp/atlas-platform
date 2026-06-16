@@ -1,0 +1,11 @@
+# Atlas Platform — .gitignore
+*.log
+*.swp
+*.swo
+*~
+.DS_Store
+.venv/
+__pycache__/
+.env
+*.rdb
+*.pid
