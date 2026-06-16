@@ -1,0 +1,66 @@
+# ATLAS PLATFORM — auditd File Monitoring Rules
+# /etc/audit/rules.d/atlas.rules
+
+# Delete any existing rules
+-D
+
+# Set buffer size
+-b 8192
+
+# Set failure mode to panic (1=printk, 2=panic)
+-f 1
+
+# Monitor critical system files — write/attribute changes
+-w /etc/passwd -p wa -k atlass_identity
+-w /etc/shadow -p wa -k atlass_identity
+-w /etc/group -p wa -k atlass_identity
+-w /etc/gshadow -p wa -k atlass_identity
+-w /etc/sudoers -p wa -k atlass_sudo
+-w /etc/sudoers.d/ -p wa -k atlass_sudo
+
+# Monitor SSH configuration
+-w /etc/ssh/sshd_config -p wa -k atlass_ssh
+-w /etc/ssh/sshd_config.d/ -p wa -k atlass_ssh
+
+# Monitor system configuration
+-w /etc/sysctl.conf -p wa -k atlass_sysctl
+-w /etc/sysctl.d/ -p wa -k atlass_sysctl
+-w /etc/hosts -p wa -k atlass_network
+-w /etc/resolv.conf -p wa -k atlass_network
+
+# Monitor cron
+-w /etc/crontab -p wa -k atlass_cron
+-w /etc/cron.d/ -p wa -k atlass_cron
+-w /etc/cron.daily/ -p wa -k atlass_cron
+-w /etc/cron.hourly/ -p wa -k atlass_cron
+-w /var/spool/cron/crontabs/ -p wa -k atlass_cron
+
+# Monitor audit rules
+-w /etc/audit/audit.rules -p wa -k atlass_auditcfg
+-w /etc/audit/rules.d/ -p wa -k atlass_auditcfg
+
+# Monitor systemd services
+-w /etc/systemd/system/ -p wa -k atlass_systemd
+
+# Monitor PAM configuration
+-w /etc/pam.d/ -p wa -k atlass_pam
+
+# Monitor login records
+-w /var/log/faillog -p wa -k atlass_logins
+-w /var/log/lastlog -p wa -k atlass_logins
+-w /var/log/tallylog -p wa -k atlass_logins
+
+# Monitor authorized_keys
+-w /root/.ssh/authorized_keys -p wa -k atlass_rootkeys
+-w /home/hermes/.ssh/authorized_keys -p wa -k atlass_hermeskeys
+
+# Monitor ATLAS PLATFORM directories
+-w /opt/atlas/ -p wa -k atlass_app
+
+# Monitor user creation/deletion
+-w /usr/sbin/useradd -p x -k atlass_usermgmt
+-w /usr/sbin/userdel -p x -k atlass_usermgmt
+-w /usr/sbin/usermod -p x -k atlass_usermgmt
+
+# Make rules immutable (requires reboot to modify)
+-e 2

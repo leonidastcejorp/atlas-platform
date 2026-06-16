@@ -1,0 +1,17 @@
+[Unit]
+Description=ATLAS PLATFORM — ZRAM Swap (zstd)
+After=multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/bash -c '\
+  modprobe zram || true; \
+  echo zstd > /sys/block/zram0/comp_algorithm 2>/dev/null || true; \
+  echo 1G > /sys/block/zram0/disksize 2>/dev/null || true; \
+  mkswap /dev/zram0 2>/dev/null || true; \
+  swapon -p 100 /dev/zram0 2>/dev/null || true'
+ExecStop=/bin/bash -c 'swapoff /dev/zram0 2>/dev/null; echo 1 > /sys/block/zram0/reset 2>/dev/null || true'
+
+[Install]
+WantedBy=multi-user.target
