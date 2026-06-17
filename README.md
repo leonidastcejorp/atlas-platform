@@ -127,30 +127,44 @@ The key prints to screen. Copy `~/.ssh/atlas_ed25519` (private) and keep it safe
 ssh -i atlas_ed25519 -p 2222 root@<your-server-ip>
 ```
 
-### 3. Configure Hermes Agent
+### 3. Deploy Docker infrastructure stack
+```bash
+cd /opt/atlas-platform/stacks/infra
+cp .env.example .env
+# Edit .env, set TRAEFIK_DASHBOARD_HOST & strong password
+bash deploy.sh
+```
+
+### 4. Configure Hermes Agent
 ```bash
 su - hermes
 hermes setup            # Interactive configuration
 hermes setup tools      # Set up required API tools
 ```
 
-### 4. Add your tools and cron jobs
+### 5. Add your tools and cron jobs
 ```bash
 # Example: deploy a monitoring cron job
 crontab -e -u hermes
 ```
 
-### 5. Verify everything
+### 6. Verify everything
 ```bash
 # Check services
 systemctl status hermes-agent fail2ban auditd
+# Check Docker stack
+docker compose -f /opt/atlas-platform/stacks/infra/docker-compose.yml ps
 # Run security audit
 lynis audit system
 # Check firewall
 ufw status verbose
 ```
 
----
+## 🧰 Companion Repositories
+
+| Repo | Purpose | Link |
+|------|---------|------|
+| **Talos Engine** | Automation framework: airdrop farming, bug bounty recon, monitoring | [leonidastcejorp/talos-engine](https://github.com/leonidastcejorp/talos-engine) |
 
 ## 🔍 Troubleshooting
 

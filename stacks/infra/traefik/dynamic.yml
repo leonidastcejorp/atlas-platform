@@ -1,0 +1,16 @@
+http:
+  middlewares:
+    auth:
+      basicAuth:
+        usersFile: /etc/traefik/.htpasswd
+
+  routers:
+    dashboard:
+      rule: Host("TRAEFIK_DASHBOARD_HOST_PLACEHOLDER")
+      service: api@internal
+      middlewares:
+        - auth
+      tls:
+        certResolver: letsencrypt
+        domains:
+          - main: "TRAEFIK_DASHBOARD_HOST_PLACEHOLDER"
