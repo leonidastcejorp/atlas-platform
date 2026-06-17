@@ -151,7 +151,7 @@ crontab -e -u hermes
 ### 6. Verify everything
 ```bash
 # Check services
-systemctl status hermes-agent fail2ban auditd
+systemctl status hermes fail2ban auditd
 # Check Docker stack
 docker compose -f /opt/atlas-platform/stacks/infra/docker-compose.yml ps
 # Run security audit
@@ -175,7 +175,7 @@ ufw status verbose
 
 ### Hermes Agent won't start
 ```bash
-journalctl -u hermes-agent -n 50 --no-pager
+journalctl -u hermes -n 50 --no-pager
 # Common fixes:
 # - Ensure /opt/atlas/venv exists and has hermes-agent installed
 # - Check hermes user can read /opt/atlas/

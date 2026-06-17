@@ -1393,6 +1393,14 @@ phase_8_hermes_agent() {
         print_done "Hermes Agent installed (or attempted)"
     fi
 
+    # Symlink global `hermes` binary so root & hermes user can use it
+    if [[ -f "${ATLAS_VENV}/bin/hermes" ]]; then
+        ln -sf "${ATLAS_VENV}/bin/hermes" /usr/local/bin/hermes
+        print_done "Hermes CLI linked to /usr/local/bin/hermes"
+    else
+        print_warn "Hermes CLI binary not found at ${ATLAS_VENV}/bin/hermes"
+    fi
+
     # Create hermes system user
     print_step "Creating '${HERMES_USER}' system user"
     if idempotent_check "hermes user exists" "id ${HERMES_USER} >/dev/null 2>&1"; then
@@ -1420,35 +1428,39 @@ phase_8_hermes_agent() {
 
     # Set up hermes home directories
     print_step "Setting up hermes user directories"
-    mkdir -p "/home/${HERMES_USER}/.hermes/config" "/home/${HERMES_USER}/.hermes/skills" "/home/${HERMES_USER}/.hermes/data"
+    mkdir -p "/home/${HERMES_USER}/.hermes/config" "/home/${HERMES_USER}/.hermes/skills" "/home/${HERMES_USER}/.hermes/data" "/home/${HERMES_USER}/.hermes/logs"
     chown -R "${HERMES_USER}:${HERMES_USER}" "/home/${HERMES_USER}/.hermes"
 
-    # Create default Hermes config
+    # Create default Hermes config (current CLI schema v0.16+)
     cat > "/home/${HERMES_USER}/.hermes/config/config.yaml" <<'HERMESCFG'
 # ATLAS PLATFORM — Hermes Agent Configuration
-# Customize after deployment: su - hermes && hermes setup
+# Run `su - hermes && hermes setup` after install to add models/providers.
 
-agent:
-  name: "ATLAS Platform Agent"
-  profile: "atlas"
+model:
+  default_model: "nous/hermes-3-llama-3.1-405b"
+  default_max_tokens: 4096
 
-tools:
-  terminal: true
-  browser: true
-  web: true
+providers:
+  nous:
+    type: "nous"
 
 paths:
-  base: /opt/atlas/
+  base: /home/hermes
   projects: /opt/atlas/projects/
   logs: /opt/atlas/logs/
   data: /opt/atlas/data/
+
+logging:
+  level: INFO
+  max_bytes: 10485760
+  backup_count: 5
 HERMESCFG
     chown "${HERMES_USER}:${HERMES_USER}" "/home/${HERMES_USER}/.hermes/config/config.yaml"
-    print_done
+    print_done "Default Hermes config created"
 
-    # Create systemd service for Hermes Agent
+    # Create systemd service for Hermes Agent (v0.16+ CLI)
     print_step "Creating systemd service for Hermes Agent"
-    cat > /etc/systemd/system/hermes-agent.service <<HERMESUNIT
+    cat > /etc/systemd/system/hermes.service <<HERMESUNIT
 [Unit]
 Description=ATLAS PLATFORM — Hermes Agent
 Documentation=https://github.com/NousResearch/hermes-agent
@@ -1459,12 +1471,12 @@ Wants=network-online.target
 Type=simple
 User=${HERMES_USER}
 Group=${HERMES_USER}
-WorkingDirectory=/opt/atlas/
-ExecStart=${ATLAS_VENV}/bin/hermes-agent serve
+WorkingDirectory=/home/${HERMES_USER}
+ExecStart=${ATLAS_VENV}/bin/hermes gateway run
 ExecStop=/bin/kill -s TERM \$MAINPID
 Restart=on-failure
 RestartSec=10
-TimeoutStopSec=30
+TimeoutStopSec=210
 KillMode=mixed
 
 # Sandboxing & Security
@@ -1495,18 +1507,18 @@ CPUQuota=200%
 # Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=hermes-agent
+SyslogIdentifier=hermes
 
 [Install]
 WantedBy=multi-user.target
 HERMESUNIT
 
     systemctl daemon-reload
-    print_done "Systemd service created at /etc/systemd/system/hermes-agent.service"
+    print_done "Systemd service created at /etc/systemd/system/hermes.service"
 
     # Enable but don't start — user needs to configure API keys first
-    print_step "Enabling Hermes Agent service (not started — needs configuration)"
-    systemctl enable hermes-agent 2>/dev/null || true
+    print_step "Enabling Hermes service (not started — needs configuration)"
+    systemctl enable hermes 2>/dev/null || true
     print_done "Service enabled. Configure with: su - hermes && hermes setup"
 
     mark_phase_done "8"
@@ -1572,8 +1584,8 @@ MOTDEOF
         cat >> /root/.bashrc <<'BASHRC'
 
 # ── ATLAS PLATFORM Aliases ──────────────────────────────────
-alias atlas-status='systemctl status hermes-agent fail2ban auditd ufw --no-pager -l'
-alias atlas-log='journalctl -u hermes-agent -f'
+alias atlas-status='systemctl status hermes fail2ban auditd ufw --no-pager -l'
+alias atlas-log='journalctl -u hermes -f'
 alias atlas-deploy-log='less /var/log/atlas-deploy.log'
 alias atlas-update='apt update && apt upgrade -y'
 alias atlas-security='lynis audit system --quick'
@@ -1629,7 +1641,7 @@ print_summary() {
     echo -e "  $(systemctl is-active fail2ban >/dev/null 2>&1 && echo "${CHECK}" || echo "${CROSS}") fail2ban (sshd + recidive)"
     echo -e "  $(systemctl is-active auditd >/dev/null 2>&1 && echo "${CHECK}" || echo "${CROSS}") auditd monitoring"
     echo -e "  $(swapon --show 2>/dev/null | grep -q zram0 && echo "${CHECK}" || echo "${CROSS}") ZRAM swap (${ZRAM_SIZE})"
-    echo -e "  $(systemctl is-enabled hermes-agent >/dev/null 2>&1 && echo "${CHECK}" || echo "${CROSS}") Hermes Agent (enabled)"
+    echo -e "  $(systemctl is-enabled hermes >/dev/null 2>&1 && echo "${CHECK}" || echo "${CROSS}") Hermes Agent (enabled)"
     echo ""
 
     echo -e "  ${BOLD}${WHITE}── Installed Tools ─────────────────────────────────────────${RESET}"
@@ -1649,7 +1661,7 @@ print_summary() {
 
     echo -e "  ${BOLD}${WHITE}── Logs ─────────────────────────────────────────────────────${RESET}"
     echo -e "  ${CLIP} Deployment:  ${LOG_FILE}"
-    echo -e "  ${CLIP} Hermes:      journalctl -u hermes-agent"
+    echo -e "  ${CLIP} Hermes:      journalctl -u hermes"
     echo -e "  ${CLIP} fail2ban:    /var/log/fail2ban.log"
     echo ""
 
@@ -1668,7 +1680,7 @@ print_summary() {
     echo -e "${BOLD}${YELLOW}║${RESET}     su - hermes && hermes setup                            ${BOLD}${YELLOW}║${RESET}"
     echo -e "${BOLD}${YELLOW}║${RESET}                                                            ${BOLD}${YELLOW}║${RESET}"
     echo -e "${BOLD}${YELLOW}║${RESET}  4. ${BOLD}Start Hermes Agent${RESET}:                                    ${BOLD}${YELLOW}║${RESET}"
-    echo -e "${BOLD}${YELLOW}║${RESET}     systemctl start hermes-agent                           ${BOLD}${YELLOW}║${RESET}"
+    echo -e "${BOLD}${YELLOW}║${RESET}     systemctl start hermes                           ${BOLD}${YELLOW}║${RESET}"
     echo -e "${BOLD}${YELLOW}║${RESET}                                                            ${BOLD}${YELLOW}║${RESET}"
     echo -e "${BOLD}${YELLOW}║${RESET}  5. ${BOLD}Review the deployment log${RESET}:                             ${BOLD}${YELLOW}║${RESET}"
     echo -e "${BOLD}${YELLOW}║${RESET}     less ${LOG_FILE}                    ${BOLD}${YELLOW}║${RESET}"

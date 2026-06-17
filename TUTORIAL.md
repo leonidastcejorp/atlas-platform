@@ -226,11 +226,11 @@ This configures:
 
 ```bash
 # Back as root:
-systemctl status hermes-agent
+systemctl status hermes
 # Should show: active (running)
 
 # Check logs:
-journalctl -u hermes-agent -f
+journalctl -u hermes -f
 ```
 
 ---
@@ -258,7 +258,7 @@ FIRECRAWL_API_KEY="fc-..."
 Restart the agent:
 
 ```bash
-systemctl restart hermes-agent
+systemctl restart hermes
 ```
 
 ---
@@ -346,14 +346,14 @@ httpx --version
 
 ```bash
 # Service status
-systemctl status hermes-agent
+systemctl status hermes
 
 # Check it's running as 'hermes' user
-ps aux | grep hermes-agent | grep -v grep
+ps aux | grep hermes | grep -v grep
 # Should show process running as 'hermes' user
 
 # Read systemd sandboxing
-systemctl show hermes-agent | grep -E "(NoNewPrivileges|ProtectSystem|ProtectHome|PrivateTmp)"
+systemctl show hermes | grep -E "(NoNewPrivileges|ProtectSystem|ProtectHome|PrivateTmp)"
 # Should show various sandboxing protections
 ```
 
@@ -400,7 +400,7 @@ If you lose your SSH key and get locked out:
 ### Hermes Agent won't start
 ```bash
 # Check the logs
-journalctl -u hermes-agent -n 50 --no-pager
+journalctl -u hermes -n 50 --no-pager
 
 # Common fixes:
 # 1. Reinstall hermes-agent
